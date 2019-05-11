@@ -24,7 +24,7 @@ async function getWeather(zipCode, apiKey) {
   return weatherData.list;
 }
 
-function insertWeather(weatherArray) {
+function createParams(weatherArray) {
   const formattedItems = weatherArray.map(weather => {
     return {
       PutRequest: {
@@ -32,11 +32,14 @@ function insertWeather(weatherArray) {
       }
     }
   });
-  const params = {
+  return {
     RequestItems: {
       Weather: formattedItems
     }
   }
+}
+
+function insertWeather(params) {
   return new Promise((resolve, reject) => {
     docClient.batchWrite(params, (err, data) => {
       if (err) {
@@ -54,9 +57,10 @@ exports.handler = async (event, context) => {
   const weatherForecast = await getWeather(zipCode, apiKey);
   const forecastChunks = chunk(weatherForecast, 25);
   for (const forecast of forecastChunks) {
+    const formattedItem = createParams(forecast);
     let result;
     try {
-      result = await insertWeather(forecast);
+      result = await insertWeather(formattedItem);
     } catch (e) {
       console.error("Unable to add/update item. ERR: ", JSON.stringify(e, null, 2));
       context.fail(e);
